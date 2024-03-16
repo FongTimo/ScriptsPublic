@@ -38,7 +38,7 @@ end)
 local runService = game:GetService("RunService")
 runService.Stepped:Connect(function()
     if game.Loaded then
-        while wait(1) do
+        while wait(5) do
 game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Ready"):FireServer()
 end
     end
