@@ -25,8 +25,8 @@ end)
 
 runService.Stepped:Connect(function()
     while wait() do
-        if game:IsLoaded() then
-            while wait(5) do
+        if game:IsLoaded(5) then
+            while wait() do
                 local args = {
                     [1] = "Tsunami"
                 }
