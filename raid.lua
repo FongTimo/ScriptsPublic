@@ -15,7 +15,7 @@ else
 print("Player not found.")
 end
 
-task.wait(20)
+task.wait(15)
 while wait() do
 local args = {
 [1] = "Tsunami"
