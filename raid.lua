@@ -1,35 +1,47 @@
-local game = game
-local workspace = game:GetService("Workspace")
-local player = game.Players.LocalPlayer
+local runService = game:GetService("RunService")
 
--- Получить часть тела гуманоида главного моба
-local mainMobRootPart = workspace.Live["Agni's Overseer"].HumanoidRootPart
+runService.Stepped:Connect(function()
+    while wait() do
+        if game:IsLoaded(5) then
+            local teleportService = game:GetService("TeleportService")
+            local placeId = 16644455867
+            local player = game.Players.LocalPlayer
 
--- Получить список всех мобов с именем "Agni's Overseer"
-local mobs = workspace:GetChildren()
-local overseerMobs = {}
-for i, v in pairs(mobs) do
-    if v.Name == "Agni's Overseer" then
-        table.insert(overseerMobs, v)
-    end
-end
+            if player then
+                local currentPlaceId = game.PlaceId
 
--- Переменная для отслеживания текущего моба, за которым следует игрок
-local currentMob = mainMobRootPart
-
--- Создать соединение для отслеживания изменений здоровья текущего моба
-currentMob.HealthChanged:Connect(function(health)
-    -- Если здоровье моба стало 0, переключиться на следующего моба
-    if health == 0 then
-        local nextMob = table.remove(overseerMobs, 1)
-        if nextMob then
-            currentMob = nextMob.HumanoidRootPart
+                if currentPlaceId ~= placeId then
+                    teleportService:Teleport(placeId, player)
+                else
+                    print("Already in the destination place.")
+                end
+            else
+                print("Player not found.")
+            end
+            break
         end
     end
 end)
 
--- Создать соединение для отслеживания изменений положения главного моба
-mainMobRootPart.PositionChanged:Connect(function()
-    -- Телепортировать игрока за главным мобом
-    player.Character.HumanoidRootPart.Position = mainMobRootPart.Position + mainMobRootPart.CFrame.lookVector * -5
+runService.Stepped:Connect(function()
+    while wait() do
+        if game:IsLoaded(5) then
+            while wait() do
+                local args = {
+                    [1] = "Tsunami"
+                }
+                game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("SkillHolder"):FireServer(unpack(args))
+            end
+            break
+        end
+    end
+end)
+
+runService.Stepped:Connect(function()
+    while wait() do
+        if game:IsLoaded(5) then
+                game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Ready"):FireServer()
+            break
+        end
+    end
 end)
