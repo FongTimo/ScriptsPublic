@@ -38,6 +38,48 @@ runService.Stepped:Connect(function()
 end)
 
 runService.Stepped:Connect(function()
+    while wait() do
+        if game:IsLoaded(3) then
+            while wait() do
+                local args = {
+                    [1] = "QuakePunch"
+                }
+                game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("SkillHolder"):FireServer(unpack(args))
+            end
+            break
+        end
+    end
+end)
+
+runService.Stepped:Connect(function()
+    while wait() do
+        if game:IsLoaded(3) then
+            while wait() do
+                local args = {
+                    [1] = "QuakeWave"
+                }
+                game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("SkillHolder"):FireServer(unpack(args))
+            end
+            break
+        end
+    end
+end)
+
+runService.Stepped:Connect(function()
+    while wait() do
+        if game:IsLoaded(3) then
+            while wait() do
+                local args = {
+                    [1] = "EarthQuake"
+                }
+                game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("SkillHolder"):FireServer(unpack(args))
+            end
+            break
+        end
+    end
+end)
+
+runService.Stepped:Connect(function()
     while wait(1) do
         if game:IsLoaded(3) then
                 game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Ready"):FireServer()
