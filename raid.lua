@@ -38,7 +38,7 @@ runService.Stepped:Connect(function()
 end)
 
 runService.Stepped:Connect(function()
-    while wait() do
+    while wait(1) do
         if game:IsLoaded(3) then
                 game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Ready"):FireServer()
             break
