@@ -87,15 +87,3 @@ runService.Stepped:Connect(function()
         end
     end
 end)
-
-game:GetService("RunService").Stepped:Connect(function()
-    while wait(1) do
-        if game:IsLoaded(3) then
-            game:GetService("GuiService").ErrorMessageChanged:Connect(function()
-                wait(0.1)
-                game:GetService("TeleportService"):Teleport(game.PlaceId)
-            end)
-            break
-        end
-    end
-end)
