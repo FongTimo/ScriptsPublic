@@ -2,7 +2,7 @@ local runService = game:GetService("RunService")
 
 runService.Stepped:Connect(function()
     while wait() do
-        if game:IsLoaded(15) then
+        if game:IsLoaded(25) then
             local teleportService = game:GetService("TeleportService")
             local placeId = 16644455867
             local player = game.Players.LocalPlayer
