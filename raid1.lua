@@ -1,3 +1,4 @@
+task.wait(20)
 local runService = game:GetService("RunService")
 
 runService.Stepped:Connect(function()
