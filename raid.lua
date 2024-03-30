@@ -88,9 +88,10 @@ runService.Stepped:Connect(function()
     end
 end)
 
+task.wait(300)
 runService.Stepped:Connect(function()
     while wait(1) do
-        if game:IsLoaded(260) then
+        if game:IsLoaded(1) then
                 game:GetService("TeleportService"):Teleport(game.PlaceId, game:GetService("Players").LocalPlayer)
             break
         end
