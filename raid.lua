@@ -2,7 +2,7 @@ local runService = game:GetService("RunService")
 
 runService.Stepped:Connect(function()
     while wait() do
-        if game:IsLoaded(3) then
+        if game:IsLoaded() then
             local teleportService = game:GetService("TeleportService")
             local placeId = 16644455867
             local player = game.Players.LocalPlayer
@@ -26,7 +26,7 @@ end)
 runService.Stepped:Connect(function()
     while wait() do
         if game:IsLoaded(3) then
-            while wait() do
+            while wait(1) do
                 local args = {
                     [1] = "Tsunami"
                 }
@@ -40,7 +40,7 @@ end)
 runService.Stepped:Connect(function()
     while wait() do
         if game:IsLoaded(3) then
-            while wait() do
+            while wait(2) do
                 local args = {
                     [1] = "QuakePunch"
                 }
@@ -54,7 +54,7 @@ end)
 runService.Stepped:Connect(function()
     while wait() do
         if game:IsLoaded(3) then
-            while wait() do
+            while wait(3) do
                 local args = {
                     [1] = "QuakeWave"
                 }
@@ -68,7 +68,7 @@ end)
 runService.Stepped:Connect(function()
     while wait() do
         if game:IsLoaded(3) then
-            while wait() do
+            while wait(4) do
                 local args = {
                     [1] = "EarthQuake"
                 }
@@ -81,7 +81,7 @@ end)
 
 runService.Stepped:Connect(function()
     while wait(5) do
-        if game:IsLoaded(3) then
+        if game:IsLoaded() then
                 game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Ready"):FireServer()
             break
         end
