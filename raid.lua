@@ -26,7 +26,7 @@ end)
 runService.Stepped:Connect(function()
     while wait() do
         if game:IsLoaded(3) then
-            while wait(1) do
+            while wait() do
                 local args = {
                     [1] = "Tsunami"
                 }
@@ -40,7 +40,7 @@ end)
 runService.Stepped:Connect(function()
     while wait() do
         if game:IsLoaded(3) then
-            while wait(2) do
+            while wait() do
                 local args = {
                     [1] = "QuakePunch"
                 }
@@ -53,7 +53,7 @@ end)
 
 runService.Stepped:Connect(function()
     while wait() do
-        if game:IsLoaded(3) then
+        if game:IsLoaded() then
             while wait(3) do
                 local args = {
                     [1] = "QuakeWave"
@@ -68,7 +68,7 @@ end)
 runService.Stepped:Connect(function()
     while wait() do
         if game:IsLoaded(3) then
-            while wait(4) do
+            while wait() do
                 local args = {
                     [1] = "EarthQuake"
                 }
