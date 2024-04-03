@@ -2,7 +2,7 @@ local runService = game:GetService("RunService")
 
 runService.Stepped:Connect(function()
     while wait() do
-        if game:IsLoaded() then
+        if game:IsLoaded(3) then
             local teleportService = game:GetService("TeleportService")
             local placeId = 16644455867
             local player = game.Players.LocalPlayer
@@ -80,19 +80,9 @@ runService.Stepped:Connect(function()
 end)
 
 runService.Stepped:Connect(function()
-    while wait(1) do
+    while wait(5) do
         if game:IsLoaded(3) then
                 game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Ready"):FireServer()
-            break
-        end
-    end
-end)
-
-task.wait(300)
-runService.Stepped:Connect(function()
-    while wait(1) do
-        if game:IsLoaded(1) then
-                game:GetService("TeleportService"):Teleport(game.PlaceId, game:GetService("Players").LocalPlayer)
             break
         end
     end
