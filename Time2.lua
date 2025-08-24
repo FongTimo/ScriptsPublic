@@ -178,7 +178,7 @@ local function toggleScript()
         -- Запускаем телепортацию с интервалом
         teleportConnection = RunService.Heartbeat:Connect(function()
             teleportHitboxes()
-            wait(2) -- Большая задержка между телепортациями
+            wait() -- Большая задержка между телепортациями
         end)
     else
         toggleButton.Text = "Включить скрипт"
