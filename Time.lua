@@ -1,34 +1,88 @@
-while wait(1) do
-  local Players = game:GetService("Players")
-local localPlayer = Players.LocalPlayer
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 
--- Проверяем один раз
-local function checkAndStartQuest()
-    local hasWolf = false
-    
-    local success, result = pcall(function()
-        local mobsFrame = localPlayer.PlayerGui.Pin.Quest.PopupBackground.Background.ScrollingFrame.Mobs.Items
-        for _, item in ipairs(mobsFrame:GetChildren()) do
-            if (item:IsA("TextLabel") or item:IsA("TextButton")) and item.Text == "Dark Wolf" then
-                hasWolf = true
-                break
-            end
-        end
-    end)
-    
-    if not success then
-        warn("Ошибка при проверке мобов: " .. result)
+local localPlayer = Players.LocalPlayer
+local target = game:GetService("Workspace").Live["Saitoma"]
+local targetHRP = target.HumanoidRootPart
+
+-- Функция для телепортации под целью
+local function teleportUnderTarget()
+    if not target or not targetHRP or not targetHRP.Parent then
         return
     end
     
-    if not hasWolf then
-        local args = {"Ranger Quest"}
-        game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Shared"):WaitForChild("Event"):WaitForChild("Remotes"):WaitForChild("QuestStart"):InvokeServer(unpack(args))
-        print("Квест запущен!")
-    else
-        print("Dark Wolf найден, квест не запускается")
+    local character = localPlayer.Character
+    if not character then return end
+    
+    local humanoid = character:FindFirstChild("Humanoid")
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    
+    if humanoid and humanoidRootPart then
+        -- Позиция под целью (5 studs ниже)
+        local offset = Vector3.new(0, -5, 0)
+        local targetPosition = targetHRP.Position + offset
+        
+        -- Устанавливаем позицию
+        humanoidRootPart.CFrame = CFrame.new(targetPosition)
+        
+        -- Поворачиваемся лицом к цели (смотрим вверх на него)
+        humanoidRootPart.CFrame = CFrame.new(targetPosition, targetHRP.Position)
+        
+        -- Отключаем физику чтобы не падать
+        humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+        humanoidRootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
     end
 end
 
-checkAndStartQuest()
+-- Запускаем постоянную телепортацию
+local connection
+connection = RunService.Heartbeat:Connect(function()
+    pcall(teleportUnderTarget)
+end)
+
+-- Делаем персонажа невидимым и неуязвимым
+local function makeCharacterInvulnerable()
+    local character = localPlayer.Character
+    if not character then return end
+    
+    -- Делаем невидимым
+    for _, part in pairs(character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.Transparency = 1
+        end
+    end
+    
+    -- Отключаем столкновения
+    for _, part in pairs(character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = false
+        end
+    end
+    
+    -- Делаем неуязвимым
+    local humanoid = character:FindFirstChild("Humanoid")
+    if humanoid then
+        humanoid.MaxHealth = math.huge
+        humanoid.Health = math.huge
+    end
 end
+
+-- Применяем защиту
+makeCharacterInvulnerable()
+
+-- Повторно применяем защиту при возрождении
+localPlayer.CharacterAdded:Connect(makeCharacterInvulnerable)
+
+-- Функция для остановки скрипта
+local function stopScript()
+    if connection then
+        connection:Disconnect()
+        connection = nil
+    end
+end
+
+-- Останавливаем скрипт при выходе из игры
+game:GetService("Players").LocalPlayer.CharacterRemoving:Connect(stopScript)
+
+-- Возвращаем функцию остановки если нужно будет остановить вручную
+return stopScript
