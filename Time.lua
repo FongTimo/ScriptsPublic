@@ -4,26 +4,26 @@ for i = 1,10 do
 }
 game:GetService("ReplicatedStorage"):WaitForChild("remotes"):WaitForChild("champions"):FireServer(unpack(args))
 end
-wait(11)
+wait(5)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
-local player = Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
+local localPlayer = Players.LocalPlayer
+local character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
 local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 
 local function findNearestHumanoidRootPart()
     local nearestPart = nil
     local nearestDistance = math.huge
     
-    for _, otherPlayer in ipairs(Players:GetPlayers()) do
-        if otherPlayer ~= player and otherPlayer.Character then
-            local otherHRP = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if otherHRP then
-                local distance = (humanoidRootPart.Position - otherHRP.Position).Magnitude
-                if distance < nearestDistance then
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= localPlayer and player.Character then
+            local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+            if targetHRP then
+                local distance = (humanoidRootPart.Position - targetHRP.Position).Magnitude
+                if distance <= 25 and distance < nearestDistance then
+                    nearestPart = targetHRP
                     nearestDistance = distance
-                    nearestPart = otherHRP
                 end
             end
         end
@@ -32,43 +32,32 @@ local function findNearestHumanoidRootPart()
     return nearestPart
 end
 
-local connection
-connection = RunService.Heartbeat:Connect(function()
-    local targetHRP = findNearestHumanoidRootPart()
+local function teleportToTarget(targetHRP)
+    if not targetHRP or not targetHRP.Parent then return end
     
-    if targetHRP then
-        -- Получаем позицию цели
-        local targetPosition = targetHRP.Position
-        
-        -- Вычисляем горизонтальное направление от цели к нашему персонажу
-        local direction = (humanoidRootPart.Position - targetPosition)
-        direction = Vector3.new(direction.X, 0, direction.Z).Unit
-        
-        -- Устанавливаем новую позицию на расстоянии 12.4 единицы
-        local newPosition = targetPosition + (direction * 12.4)
-        
-        -- Сохраняем высоту цели
-        newPosition = Vector3.new(newPosition.X, targetPosition.Y, newPosition.Z)
-        
-        -- Телепортируем
-        humanoidRootPart.CFrame = CFrame.new(newPosition, targetPosition)
-    end
-end)
-
--- Функция для очистки соединения
-local function cleanup()
-    if connection then
-        connection:Disconnect()
-        connection = nil
-    end
+    local head = targetHRP.Parent:FindFirstChild("Head")
+    if not head then return end
+    
+    -- Получаем позицию головы цели
+    local headPosition = head.Position
+    
+    -- Вычисляем направление от цели к нашей текущей позиции
+    local direction = (humanoidRootPart.Position - headPosition).Unit
+    
+    -- Устанавливаем Y-компоненту в 0 для горизонтального положения
+    direction = Vector3.new(direction.X, 0, direction.Z).Unit
+    
+    -- Вычисляем конечную позицию (12.4 единицы над головой в горизонтальном направлении)
+    local targetPosition = headPosition + direction * 12.4
+    
+    -- Телепортируемся
+    humanoidRootPart.CFrame = CFrame.new(targetPosition, headPosition)
 end
 
--- Очистка при смерти персонажа
-character:WaitForChild("Humanoid").Died:Connect(cleanup)
-
--- Очистка при выходе из игры
-game:GetService("UserInputService").WindowFocused:Connect(function(focused)
-    if not focused then
-        cleanup()
+-- Основной цикл
+RunService.Heartbeat:Connect(function()
+    local nearestTarget = findNearestHumanoidRootPart()
+    if nearestTarget then
+        teleportToTarget(nearestTarget)
     end
 end)
