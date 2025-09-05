@@ -1,88 +1,72 @@
+local args = {
+	"queue"
+}
+game:GetService("ReplicatedStorage"):WaitForChild("remotes"):WaitForChild("champions"):FireServer(unpack(args))
+wait(3)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
-local localPlayer = Players.LocalPlayer
-local target = game:GetService("Workspace").Live["Saitoma"]
-local targetHRP = target.HumanoidRootPart
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 
--- Функция для телепортации под целью
-local function teleportUnderTarget()
-    if not target or not targetHRP or not targetHRP.Parent then
-        return
+local function findNearestHumanoidRootPart()
+    local nearestPart = nil
+    local nearestDistance = math.huge
+    
+    for _, otherPlayer in ipairs(Players:GetPlayers()) do
+        if otherPlayer ~= player and otherPlayer.Character then
+            local otherHRP = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if otherHRP then
+                local distance = (humanoidRootPart.Position - otherHRP.Position).Magnitude
+                if distance < nearestDistance then
+                    nearestDistance = distance
+                    nearestPart = otherHRP
+                end
+            end
+        end
     end
     
-    local character = localPlayer.Character
-    if not character then return end
-    
-    local humanoid = character:FindFirstChild("Humanoid")
-    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-    
-    if humanoid and humanoidRootPart then
-        -- Позиция под целью (5 studs ниже)
-        local offset = Vector3.new(0, -5, 0)
-        local targetPosition = targetHRP.Position + offset
-        
-        -- Устанавливаем позицию
-        humanoidRootPart.CFrame = CFrame.new(targetPosition)
-        
-        -- Поворачиваемся лицом к цели (смотрим вверх на него)
-        humanoidRootPart.CFrame = CFrame.new(targetPosition, targetHRP.Position)
-        
-        -- Отключаем физику чтобы не падать
-        humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
-        humanoidRootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-    end
+    return nearestPart
 end
 
--- Запускаем постоянную телепортацию
 local connection
 connection = RunService.Heartbeat:Connect(function()
-    pcall(teleportUnderTarget)
+    local targetHRP = findNearestHumanoidRootPart()
+    
+    if targetHRP then
+        -- Получаем позицию цели
+        local targetPosition = targetHRP.Position
+        
+        -- Вычисляем горизонтальное направление от цели к нашему персонажу
+        local direction = (humanoidRootPart.Position - targetPosition)
+        direction = Vector3.new(direction.X, 0, direction.Z).Unit
+        
+        -- Устанавливаем новую позицию на расстоянии 12.4 единицы
+        local newPosition = targetPosition + (direction * 12.4)
+        
+        -- Сохраняем высоту цели
+        newPosition = Vector3.new(newPosition.X, targetPosition.Y, newPosition.Z)
+        
+        -- Телепортируем
+        humanoidRootPart.CFrame = CFrame.new(newPosition, targetPosition)
+    end
 end)
 
--- Делаем персонажа невидимым и неуязвимым
-local function makeCharacterInvulnerable()
-    local character = localPlayer.Character
-    if not character then return end
-    
-    -- Делаем невидимым
-    for _, part in pairs(character:GetDescendants()) do
-        if part:IsA("BasePart") then
-            part.Transparency = 1
-        end
-    end
-    
-    -- Отключаем столкновения
-    for _, part in pairs(character:GetDescendants()) do
-        if part:IsA("BasePart") then
-            part.CanCollide = false
-        end
-    end
-    
-    -- Делаем неуязвимым
-    local humanoid = character:FindFirstChild("Humanoid")
-    if humanoid then
-        humanoid.MaxHealth = math.huge
-        humanoid.Health = math.huge
-    end
-end
-
--- Применяем защиту
-makeCharacterInvulnerable()
-
--- Повторно применяем защиту при возрождении
-localPlayer.CharacterAdded:Connect(makeCharacterInvulnerable)
-
--- Функция для остановки скрипта
-local function stopScript()
+-- Функция для очистки соединения
+local function cleanup()
     if connection then
         connection:Disconnect()
         connection = nil
     end
 end
 
--- Останавливаем скрипт при выходе из игры
-game:GetService("Players").LocalPlayer.CharacterRemoving:Connect(stopScript)
+-- Очистка при смерти персонажа
+character:WaitForChild("Humanoid").Died:Connect(cleanup)
 
--- Возвращаем функцию остановки если нужно будет остановить вручную
-return stopScript
+-- Очистка при выходе из игры
+game:GetService("UserInputService").WindowFocused:Connect(function(focused)
+    if not focused then
+        cleanup()
+    end
+end)
