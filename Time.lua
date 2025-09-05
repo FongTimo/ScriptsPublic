@@ -1,8 +1,10 @@
-local args = {
+for i = 1,10 do
+	local args = {
 	"queue"
 }
 game:GetService("ReplicatedStorage"):WaitForChild("remotes"):WaitForChild("champions"):FireServer(unpack(args))
-wait(9)
+end
+wait(11)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
