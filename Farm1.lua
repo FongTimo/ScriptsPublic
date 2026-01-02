@@ -1,174 +1,458 @@
-local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
-local RunService = game:GetService("RunService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+-- Rayfield Interface
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Window = Rayfield:CreateWindow({
+    Name = "Auto Farm System",
+    LoadingTitle = "Загрузка интерфейса...",
+    LoadingSubtitle = "by Script Helper",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "AutoFarmConfig",
+        FileName = "Config"
+    },
+    Discord = {
+        Enabled = false,
+        Invite = "noinvitelink",
+        RememberJoins = true
+    },
+    KeySystem = false,
+})
 
-local TELEPORT_HEIGHT = -11.3 -- Отрицательное значение для телепортации под ноги
-local SMOOTHNESS = 0.1
-local RESTART_DELAY = 9 -- seconds
-local PLAYER_CHECK_RADIUS = 300 -- Радиус проверки игроков вокруг NPC
+-- Основные вкладки
+local MainTab = Window:CreateTab("Главная", 4483362458)
+local CombatTab = Window:CreateTab("Бой", 4483362458)
+local UtilityTab = Window:CreateTab("Утилиты", 4483362458)
+local ScriptsTab = Window:CreateTab("Скрипты", 4483362458)
 
-local function executeQueueScript()
-    local args = {"queue"}
-    local success, errorMessage = pcall(function()
-        ReplicatedStorage:WaitForChild("remotes"):WaitForChild("champions"):FireServer(unpack(args))
-    end)
-    
-    if success then
-        print("✅ Скрипт queue выполнен успешно")
-    else
-        print("❌ Ошибка при выполнении скрипта queue: " .. errorMessage)
-    end
-end
+-- Переменные для управления скриптами
+local questScriptRunning = false
+local teleportScriptRunning = false
+local abilityScriptRunning = false
+local slashScriptRunning = false
+local antiAfkRunning = false
+local antiLagRunning = false
 
-local function hasPlayersNearby(npcPosition)
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= Players.LocalPlayer and player.Character then
-            local humanoidRootPart = player.Character:FindFirstChild("HumanoidRootPart")
-            if humanoidRootPart then
-                local distance = (npcPosition - humanoidRootPart.Position).Magnitude
-                if distance <= PLAYER_CHECK_RADIUS then
-                    return true -- Найден игрок рядом с NPC
+local questScriptConnection
+local teleportScriptThread
+local abilityScriptThread
+local slashScriptThread
+
+-- Секция 1: Авто-принятие квеста
+local QuestSection = MainTab:CreateSection("Авто-принятие квеста")
+
+local questToggle = MainTab:CreateToggle({
+    Name = "Авто-принятие квеста",
+    CurrentValue = false,
+    Flag = "QuestAutoAccept",
+    Callback = function(value)
+        questScriptRunning = value
+        
+        if value then
+            -- Запуск скрипта принятия квеста
+            questScriptConnection = task.spawn(function()
+                while questScriptRunning and task.wait() do
+                    local Players = game:GetService("Players")
+                    local Player = Players.LocalPlayer
+                    local PlayerGui = Player:WaitForChild("PlayerGui")
+
+                    local Menu = PlayerGui:WaitForChild("Menu")
+                    local Main = Menu:WaitForChild("Main")
+                    local QuestFrame = Main:WaitForChild("QuestFrame")
+
+                    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+                    local Quests = ReplicatedStorage:WaitForChild("Quests")
+                    local RemoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents")
+
+                    local targetQuest = Quests:WaitForChild("Defeat 25 Legendary Saiyan")
+                    local changeQuestRemote = RemoteEvents:WaitForChild("ChangeQuestRemote")
+
+                    local function sendQuestRequest()
+                        local args = {targetQuest}
+                        changeQuestRemote:FireServer(unpack(args))
+                        print("Квест отправлен: Defeat 25 Legendary Saiyan")
+                    end
+
+                    local connection
+                    connection = QuestFrame:GetPropertyChangedSignal("Visible"):Connect(function()
+                        if not QuestFrame.Visible then
+                            if connection then
+                                connection:Disconnect()
+                                connection = nil
+                            end
+                            task.wait(0.5)
+                            sendQuestRequest()
+                        end
+                    end)
+
+                    if not QuestFrame.Visible then
+                        if connection then
+                            connection:Disconnect()
+                        end
+                        task.wait(0.5)
+                        sendQuestRequest()
+                    end
+
+                    print("Скрипт активирован. Ожидание когда QuestFrame станет невидимым...")
                 end
+            end)
+            Rayfield:Notify({
+                Title = "Авто-квест",
+                Content = "Автоматическое принятие квеста включено!",
+                Duration = 3,
+                Image = 4483362458,
+            })
+        else
+            -- Остановка скрипта
+            questScriptRunning = false
+            if questScriptConnection then
+                task.cancel(questScriptConnection)
+                questScriptConnection = nil
             end
         end
     end
-    return false -- Игроков рядом нет
-end
+})
 
-local function teleportScript()
-    local selectedTarget = nil
-    local lastPosition = nil
-    local connection = nil
+-- Секция 2: Телепорт к саянам
+local TeleportSection = CombatTab:CreateSection("Телепорт к Legendary Saiyan")
 
-    local function findClosestHumanoidRootPart()
-        local localPlayer = Players.LocalPlayer
-        if not localPlayer or not localPlayer.Character then return nil end
+local teleportToggle = CombatTab:CreateToggle({
+    Name = "Телепорт к Legendary Saiyan",
+    CurrentValue = false,
+    Flag = "TeleportToSaiyans",
+    Callback = function(value)
+        teleportScriptRunning = value
         
-        local localRoot = localPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if not localRoot then return nil end
-        
-        local closestPart = nil
-        local closestDistance = math.huge
-        
-        -- Получаем список всех игроков для проверки
-        local allPlayers = {}
-        for _, player in pairs(Players:GetPlayers()) do
-            if player.Character then
-                allPlayers[player.Character] = true
-            end
-        end
-        
-        for _, npc in pairs(Workspace.Live:GetChildren()) do
-            -- Пропускаем игроков (персонажи игроков)
-            if allPlayers[npc] then
-                continue
-            end
-            
-            if npc:IsA("Model") and npc:FindFirstChild("HumanoidRootPart") then
-                local humanoid = npc:FindFirstChildOfClass("Humanoid")
-                local npcRoot = npc.HumanoidRootPart
-                
-                if humanoid and humanoid.Health > 0 and npc ~= localPlayer.Character then
-                    -- Проверяем есть ли игроки рядом с этим NPC
-                    if hasPlayersNearby(npcRoot.Position) then
-                        print("🚫 Пропускаем NPC " .. npc.Name .. " - рядом есть игроки")
-                        continue
+        if value then
+            -- Запуск скрипта телепортации
+            teleportScriptThread = task.spawn(function()
+                task.wait(5)
+                local player = game.Players.LocalPlayer
+                local character = player.Character or player.CharacterAdded:Wait()
+                local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+
+                local targetNames = {
+                    "Legendary Saiyan1",
+                    "Legendary Saiyan2", 
+                    "Legendary Saiyan3",
+                    "Legendary Saiyan4",
+                    "Legendary Saiyan5",
+                    "Legendary Saiyan6",
+                    "Legendary Saiyan7"
+                }
+
+                local targetLookup = {}
+                for _, name in ipairs(targetNames) do
+                    targetLookup[name] = true
+                end
+
+                local function isTargetName(name)
+                    return targetLookup[name] == true
+                end
+
+                local function findAndTeleportToLegendarySaiyans()
+                    local liveFolder = workspace:FindFirstChild("Live")
+                    if not liveFolder then 
+                        print("Папка Live не найдена!")
+                        return false
                     end
                     
-                    local distance = (localRoot.Position - npcRoot.Position).Magnitude
-                    if distance < closestDistance then
-                        closestDistance = distance
-                        closestPart = npcRoot
+                    local found = false
+                    
+                    for _, model in ipairs(liveFolder:GetChildren()) do
+                        if not teleportScriptRunning then break end
+                        
+                        if model:IsA("Model") and isTargetName(model.Name) then
+                            local targetRoot = model:FindFirstChild("HumanoidRootPart")
+                            if targetRoot then
+                                humanoidRootPart.CFrame = targetRoot.CFrame
+                                print("Телепортирован к: " .. model.Name)
+                                found = true
+                                task.wait(0.3)
+                            end
+                        end
+                    end
+                    
+                    return found
+                end
+
+                local function mainLoop()
+                    while teleportScriptRunning do
+                        local found = findAndTeleportToLegendarySaiyans()
+                        
+                        if found then
+                            task.wait(3)
+                        else
+                            print("Целевые Legendary Saiyan не найдены, повторная попытка...")
+                            task.wait(1)
+                        end
                     end
                 end
+
+                player.CharacterAdded:Connect(function(newChar)
+                    character = newChar
+                    humanoidRootPart = newChar:WaitForChild("HumanoidRootPart")
+                    print("Персонаж переинициализирован")
+                end)
+
+                task.spawn(mainLoop)
+                print("Скрипт телепортации запущен! Ищу Legendary Saiyan 1-7...")
+            end)
+            Rayfield:Notify({
+                Title = "Телепорт",
+                Content = "Авто-телепорт к саянам включен!",
+                Duration = 3,
+                Image = 4483362458,
+            })
+        else
+            -- Остановка скрипта
+            teleportScriptRunning = false
+            if teleportScriptThread then
+                task.cancel(teleportScriptThread)
+                teleportScriptThread = nil
             end
         end
-        
-        return closestPart
     end
+})
 
-    local function initialize()
-        local localPlayer = Players.LocalPlayer
-        if localPlayer and localPlayer.Character then
-            local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
-            if humanoid then
-                humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+-- Секция 3: Авто-использование способности
+local AbilitySection = CombatTab:CreateSection("Авто-способности")
+
+local abilityToggle = CombatTab:CreateToggle({
+    Name = "Авто-использование MadaraSixth",
+    CurrentValue = false,
+    Flag = "AutoAbility",
+    Callback = function(value)
+        abilityScriptRunning = value
+        
+        if value then
+            -- Запуск скрипта способности
+            abilityScriptThread = task.spawn(function()
+                while abilityScriptRunning and task.wait() do
+                    local args = {"MadaraSixth"}
+                    game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("AbilityHandler"):FireServer(unpack(args))
+                end
+            end)
+            Rayfield:Notify({
+                Title = "Авто-способность",
+                Content = "Авто-использование MadaraSixth включено!",
+                Duration = 3,
+                Image = 4483362458,
+            })
+        else
+            -- Остановка скрипта
+            abilityScriptRunning = false
+            if abilityScriptThread then
+                task.cancel(abilityScriptThread)
+                abilityScriptThread = nil
             end
         end
     end
+})
 
-    -- Выбираем цель
-    selectedTarget = findClosestHumanoidRootPart()
-    if not selectedTarget then
-        print("❌ Не найдено подходящих NPC целей (без игроков рядом)")
-        executeQueueScript() -- Выполняем queue сразу
-        task.wait(RESTART_DELAY) -- Ждем после выполнения queue
-        teleportScript()
-        return false
+-- Секция 4: Очистка эффектов
+local CleanupSection = UtilityTab:CreateSection("Очистка эффектов")
+
+local slashToggle = UtilityTab:CreateToggle({
+    Name = "Авто-удаление Slash моделей",
+    CurrentValue = false,
+    Flag = "AutoRemoveSlash",
+    Callback = function(value)
+        slashScriptRunning = value
+        
+        if value then
+            -- Запуск скрипта удаления
+            slashScriptThread = task.spawn(function()
+                while slashScriptRunning and task.wait() do
+                    local function removeSlashModels()
+                        local slashModels = workspace:GetChildren()
+                        
+                        for _, model in ipairs(slashModels) do
+                            if model.Name == "Slash" and model:IsA("Model") then
+                                model:Destroy()
+                                print("Удалена модель Slash")
+                            end
+                        end
+                    end
+                    
+                    removeSlashModels()
+                end
+            end)
+            Rayfield:Notify({
+                Title = "Очистка",
+                Content = "Авто-удаление Slash моделей включено!",
+                Duration = 3,
+                Image = 4483362458,
+            })
+        else
+            -- Остановка скрипта
+            slashScriptRunning = false
+            if slashScriptThread then
+                task.cancel(slashScriptThread)
+                slashScriptThread = nil
+            end
+        end
     end
+})
 
-    print("🎯 NPC цель выбрана: " .. selectedTarget.Parent.Name)
-    print("✅ Вокруг нет других игроков")
-    print("🔒 Телепортация под ноги активирована")
+-- Секция 5: Утилиты
+local UtilitySection = UtilityTab:CreateSection("Системные утилиты")
 
-    initialize()
-
-    -- Основной цикл телепортации
-    connection = RunService.Heartbeat:Connect(function()
-        -- Проверяем существует ли цель
-        if not selectedTarget or not selectedTarget.Parent or not selectedTarget:IsDescendantOf(Workspace) then
-            if connection then
-                connection:Disconnect()
+local antiAfkToggle = UtilityTab:CreateToggle({
+    Name = "Anti-AFK",
+    CurrentValue = false,
+    Flag = "AntiAFK",
+    Callback = function(value)
+        antiAfkRunning = value
+        
+        if value then
+            -- Загрузка Anti-AFK скрипта
+            local success, error = pcall(function()
+                loadstring(game:HttpGet("https://raw.githubusercontent.com/ArgetnarYT/scripts/main/AntiAfk2.lua"))()
+            end)
+            
+            if success then
+                Rayfield:Notify({
+                    Title = "Anti-AFK",
+                    Content = "Anti-AFK скрипт загружен успешно!",
+                    Duration = 3,
+                    Image = 4483362458,
+                })
+            else
+                Rayfield:Notify({
+                    Title = "Ошибка",
+                    Content = "Не удалось загрузить Anti-AFK: " .. error,
+                    Duration = 5,
+                    Image = 4483362458,
+                })
+                antiAfkToggle:Set(false)
             end
-            print("⛔ NPC цель исчезла")
-            executeQueueScript() -- Выполняем queue сразу
-            print("🔄 Перезапускаем через " .. RESTART_DELAY .. " сек...")
-            task.wait(RESTART_DELAY) -- Ждем после выполнения queue
-            teleportScript()
-            return
+        else
+            -- Note: Anti-AFK скрипт обычно не имеет функции отключения
+            Rayfield:Notify({
+                Title = "Anti-AFK",
+                Content = "Перезапустите игру чтобы отключить Anti-AFK",
+                Duration = 3,
+                Image = 4483362458,
+            })
         end
-        
-        -- Проверяем не появились ли игроки рядом с целью
-        if hasPlayersNearby(selectedTarget.Position) then
-            if connection then
-                connection:Disconnect()
-            end
-            print("⛔ Рядом с NPC появились игроки")
-            executeQueueScript() -- Выполняем queue сразу
-            print("🔄 Ищем новую цель через " .. RESTART_DELAY .. " сек...")
-            task.wait(RESTART_DELAY) -- Ждем после выполнения queue
-            teleportScript()
-            return
-        end
-        
-        local localPlayer = Players.LocalPlayer
-        if not localPlayer or not localPlayer.Character then return end
-        
-        local localRoot = localPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if not localRoot then return end
-        
-        -- Телепортация ПОД выбранную цель (отрицательная высота)
-        local targetPos = selectedTarget.Position + Vector3.new(0, TELEPORT_HEIGHT, 0)
-        
-        -- Плавное движение
-        local smoothPosition = lastPosition and (lastPosition + (targetPos - lastPosition) * SMOOTHNESS) or targetPos
-        lastPosition = smoothPosition
-        
-        -- Правильное вращение (лицом к цели)
-        local lookCFrame = CFrame.new(smoothPosition, selectedTarget.Position)
-        localRoot.CFrame = lookCFrame * CFrame.Angles(math.rad(-90), 0, 0)
-    end)
+    end
+})
 
-    print("✅ Телепорт скрипт запущен!")
-    print("🎯 Игнорирует NPC с игроками рядом")
-    print("📡 Радиус проверки игроков: " .. PLAYER_CHECK_RADIUS .. " единиц")
-    print("👇 Телепортация под ноги на высоте: " .. TELEPORT_HEIGHT)
-    return true
+local antiLagToggle = UtilityTab:CreateToggle({
+    Name = "Anti-Lag",
+    CurrentValue = false,
+    Flag = "AntiLag",
+    Callback = function(value)
+        antiLagRunning = value
+        
+        if value then
+            -- Загрузка Anti-Lag скрипта
+            local success, error = pcall(function()
+                loadstring(game:HttpGet("https://raw.githubusercontent.com/z4tt483/ItzXery.lua/main/AntiLag-ItzXery.lua"))()
+            end)
+            
+            if success then
+                Rayfield:Notify({
+                    Title = "Anti-Lag",
+                    Content = "Anti-Lag скрипт загружен успешно!",
+                    Duration = 3,
+                    Image = 4483362458,
+                })
+            else
+                Rayfield:Notify({
+                    Title = "Ошибка",
+                    Content = "Не удалось загрузить Anti-Lag: " .. error,
+                    Duration = 5,
+                    Image = 4483362458,
+                })
+                antiLagToggle:Set(false)
+            end
+        else
+            Rayfield:Notify({
+                Title = "Anti-Lag",
+                Content = "Перезапустите игру чтобы отключить Anti-Lag",
+                Duration = 3,
+                Image = 4483362458,
+            })
+        end
+    end
+})
+
+-- Секция 6: Быстрые действия
+local QuickActionsSection = MainTab:CreateSection("Быстрые действия")
+
+local startAllButton = MainTab:CreateButton({
+    Name = "Запустить всё",
+    Callback = function()
+        questToggle:Set(true)
+        task.wait(0.5)
+        teleportToggle:Set(true)
+        task.wait(0.5)
+        abilityToggle:Set(true)
+        task.wait(0.5)
+        slashToggle:Set(true)
+        
+        Rayfield:Notify({
+            Title = "Автозапуск",
+            Content = "Все основные скрипты запущены!",
+            Duration = 5,
+            Image = 4483362458,
+        })
+    end,
+})
+
+local stopAllButton = MainTab:CreateButton({
+    Name = "Остановить всё",
+    Callback = function()
+        questToggle:Set(false)
+        teleportToggle:Set(false)
+        abilityToggle:Set(false)
+        slashToggle:Set(false)
+        
+        Rayfield:Notify({
+            Title = "Остановка",
+            Content = "Все скрипты остановлены!",
+            Duration = 5,
+            Image = 4483362458,
+        })
+    end,
+})
+
+-- Секция 7: Информация
+local InfoSection = ScriptsTab:CreateSection("Информация о скриптах")
+
+local statusLabel = ScriptsTab:CreateLabel("Статус скриптов:")
+questToggle:Set(false)
+teleportToggle:Set(false)
+abilityToggle:Set(false)
+slashToggle:Set(false)
+antiAfkToggle:Set(false)
+antiLagToggle:Set(false)
+
+local function updateStatus()
+    local statusText = "Статус скриптов:\n"
+    statusText = statusText .. "• Авто-квест: " .. (questScriptRunning and "✅ ВКЛ" or "❌ ВЫКЛ") .. "\n"
+    statusText = statusText .. "• Телепорт: " .. (teleportScriptRunning and "✅ ВКЛ" or "❌ ВЫКЛ") .. "\n"
+    statusText = statusText .. "• Авто-способность: " .. (abilityScriptRunning and "✅ ВКЛ" or "❌ ВЫКЛ") .. "\n"
+    statusText = statusText .. "• Очистка Slash: " .. (slashScriptRunning and "✅ ВКЛ" or "❌ ВЫКЛ") .. "\n"
+    statusText = statusText .. "• Anti-AFK: " .. (antiAfkRunning and "✅ ВКЛ" or "❌ ВЫКЛ") .. "\n"
+    statusText = statusText .. "• Anti-Lag: " .. (antiLagRunning and "✅ ВКЛ" or "❌ ВЫКЛ")
+    
+    statusLabel:Set(statusText)
 end
 
--- Запускаем основной цикл
-teleportScript()
+-- Обновление статуса каждую секунду
+task.spawn(function()
+    while task.wait(1) do
+        updateStatus()
+    end
+end)
 
-print("🔄 Авто-рестарт система активирована")
-print("⏰ Задержка перезапуска: " .. RESTART_DELAY .. " секунд")
+-- Начальное обновление
+updateStatus()
+
+Rayfield:Notify({
+    Title = "Интерфейс загружен",
+    Content = "GUI успешно создан! Выберите нужные функции.",
+    Duration = 5,
+    Image = 4483362458,
+})
