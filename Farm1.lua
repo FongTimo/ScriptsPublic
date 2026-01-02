@@ -22,6 +22,7 @@ local MainTab = Window:CreateTab("Главная", 4483362458)
 local CombatTab = Window:CreateTab("Бой", 4483362458)
 local UtilityTab = Window:CreateTab("Утилиты", 4483362458)
 local ScriptsTab = Window:CreateTab("Скрипты", 4483362458)
+local TeleportTab = Window:CreateTab("Телепорт", 4483362458)
 
 -- Переменные для управления скриптами
 local questScriptRunning = false
@@ -30,11 +31,15 @@ local abilityScriptRunning = false
 local slashScriptRunning = false
 local antiAfkRunning = false
 local antiLagRunning = false
+local autoRejoinRunning = false
+local autoOpenGateRunning = false
 
 local questScriptConnection
 local teleportScriptThread
 local abilityScriptThread
 local slashScriptThread
+local autoRejoinConnection
+local autoOpenGateThread
 
 -- Секция 1: Авто-принятие квеста
 local QuestSection = MainTab:CreateSection("Авто-принятие квеста")
@@ -293,8 +298,90 @@ local slashToggle = UtilityTab:CreateToggle({
     end
 })
 
--- Секция 5: Утилиты
-local UtilitySection = UtilityTab:CreateSection("Системные утилиты")
+-- Секция 5: Авто-открытие ворот
+local GateSection = TeleportTab:CreateSection("Авто-открытие ворот")
+
+local gateToggle = TeleportTab:CreateToggle({
+    Name = "Авто-открытие ворот (Towers:OpenGate)",
+    CurrentValue = false,
+    Flag = "AutoOpenGate",
+    Callback = function(value)
+        autoOpenGateRunning = value
+        
+        if value then
+            -- Запуск скрипта открытия ворот
+            autoOpenGateThread = task.spawn(function()
+                while autoOpenGateRunning and task.wait(5) do
+                    local args = {"Towers:OpenGate"}
+                    game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Signal"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
+                    print("Отправлен запрос на открытие ворот")
+                end
+            end)
+            Rayfield:Notify({
+                Title = "Авто-ворота",
+                Content = "Авто-открытие ворот включено! (каждые 5 сек)",
+                Duration = 3,
+                Image = 4483362458,
+            })
+        else
+            -- Остановка скрипта
+            autoOpenGateRunning = false
+            if autoOpenGateThread then
+                task.cancel(autoOpenGateThread)
+                autoOpenGateThread = nil
+            end
+        end
+    end
+})
+
+-- Секция 6: Системные утилиты
+local SystemSection = UtilityTab:CreateSection("Системные утилиты")
+
+local autoRejoinToggle = UtilityTab:CreateToggle({
+    Name = "Авто-режойн при ошибке",
+    CurrentValue = false,
+    Flag = "AutoRejoin",
+    Callback = function(value)
+        autoRejoinRunning = value
+        
+        if value then
+            -- Запуск скрипта авто-режойна
+            local function onErrorMessageChanged(errorMessage)
+                if errorMessage and errorMessage ~= "" then
+                    print("Обнаружена ошибка: " .. errorMessage)
+
+                    local player = Players.LocalPlayer
+                    if player then
+                        task.wait()
+                        TeleportService:Teleport(game.PlaceId, player)
+                        Rayfield:Notify({
+                            Title = "Авто-режойн",
+                            Content = "Обнаружена ошибка, перезаход в игру...",
+                            Duration = 5,
+                            Image = 4483362458,
+                        })
+                    end
+                end
+            end
+            
+            autoRejoinConnection = GuiService.ErrorMessageChanged:Connect(onErrorMessageChanged)
+            
+            Rayfield:Notify({
+                Title = "Авто-режойн",
+                Content = "Авто-режойн при ошибке включен!",
+                Duration = 3,
+                Image = 4483362458,
+            })
+        else
+            -- Остановка скрипта
+            autoRejoinRunning = false
+            if autoRejoinConnection then
+                autoRejoinConnection:Disconnect()
+                autoRejoinConnection = nil
+            end
+        end
+    end
+})
 
 local antiAfkToggle = UtilityTab:CreateToggle({
     Name = "Anti-AFK",
@@ -377,19 +464,23 @@ local antiLagToggle = UtilityTab:CreateToggle({
     end
 })
 
--- Секция 6: Быстрые действия
+-- Секция 7: Быстрые действия
 local QuickActionsSection = MainTab:CreateSection("Быстрые действия")
 
 local startAllButton = MainTab:CreateButton({
     Name = "Запустить всё",
     Callback = function()
         questToggle:Set(true)
-        task.wait(0.5)
+        task.wait(0.3)
         teleportToggle:Set(true)
-        task.wait(0.5)
+        task.wait(0.3)
         abilityToggle:Set(true)
-        task.wait(0.5)
+        task.wait(0.3)
         slashToggle:Set(true)
+        task.wait(0.3)
+        gateToggle:Set(true)
+        task.wait(0.3)
+        autoRejoinToggle:Set(true)
         
         Rayfield:Notify({
             Title = "Автозапуск",
@@ -407,6 +498,8 @@ local stopAllButton = MainTab:CreateButton({
         teleportToggle:Set(false)
         abilityToggle:Set(false)
         slashToggle:Set(false)
+        gateToggle:Set(false)
+        autoRejoinToggle:Set(false)
         
         Rayfield:Notify({
             Title = "Остановка",
@@ -417,7 +510,47 @@ local stopAllButton = MainTab:CreateButton({
     end,
 })
 
--- Секция 7: Информация
+local startCombatButton = MainTab:CreateButton({
+    Name = "Запустить боевые скрипты",
+    Callback = function()
+        questToggle:Set(true)
+        task.wait(0.3)
+        teleportToggle:Set(true)
+        task.wait(0.3)
+        abilityToggle:Set(true)
+        task.wait(0.3)
+        slashToggle:Set(true)
+        
+        Rayfield:Notify({
+            Title = "Боевые скрипты",
+            Content = "Боевые скрипты запущены!",
+            Duration = 3,
+            Image = 4483362458,
+        })
+    end,
+})
+
+local startUtilityButton = MainTab:CreateButton({
+    Name = "Запустить утилиты",
+    Callback = function()
+        gateToggle:Set(true)
+        task.wait(0.3)
+        autoRejoinToggle:Set(true)
+        task.wait(0.3)
+        antiAfkToggle:Set(true)
+        task.wait(0.3)
+        antiLagToggle:Set(true)
+        
+        Rayfield:Notify({
+            Title = "Утилиты",
+            Content = "Системные утилиты запущены!",
+            Duration = 3,
+            Image = 4483362458,
+        })
+    end,
+})
+
+-- Секция 8: Информация
 local InfoSection = ScriptsTab:CreateSection("Информация о скриптах")
 
 local statusLabel = ScriptsTab:CreateLabel("Статус скриптов:")
@@ -425,15 +558,19 @@ questToggle:Set(false)
 teleportToggle:Set(false)
 abilityToggle:Set(false)
 slashToggle:Set(false)
+gateToggle:Set(false)
+autoRejoinToggle:Set(false)
 antiAfkToggle:Set(false)
 antiLagToggle:Set(false)
 
 local function updateStatus()
     local statusText = "Статус скриптов:\n"
     statusText = statusText .. "• Авто-квест: " .. (questScriptRunning and "✅ ВКЛ" or "❌ ВЫКЛ") .. "\n"
-    statusText = statusText .. "• Телепорт: " .. (teleportScriptRunning and "✅ ВКЛ" or "❌ ВЫКЛ") .. "\n"
+    statusText = statusText .. "• Телепорт к саянам: " .. (teleportScriptRunning and "✅ ВКЛ" or "❌ ВЫКЛ") .. "\n"
     statusText = statusText .. "• Авто-способность: " .. (abilityScriptRunning and "✅ ВКЛ" or "❌ ВЫКЛ") .. "\n"
     statusText = statusText .. "• Очистка Slash: " .. (slashScriptRunning and "✅ ВКЛ" or "❌ ВЫКЛ") .. "\n"
+    statusText = statusText .. "• Авто-ворота: " .. (autoOpenGateRunning and "✅ ВКЛ" or "❌ ВЫКЛ") .. "\n"
+    statusText = statusText .. "• Авто-режойн: " .. (autoRejoinRunning and "✅ ВКЛ" or "❌ ВЫКЛ") .. "\n"
     statusText = statusText .. "• Anti-AFK: " .. (antiAfkRunning and "✅ ВКЛ" or "❌ ВЫКЛ") .. "\n"
     statusText = statusText .. "• Anti-Lag: " .. (antiLagRunning and "✅ ВКЛ" or "❌ ВЫКЛ")
     
@@ -447,12 +584,17 @@ task.spawn(function()
     end
 end)
 
+-- Инициализация сервисов
+local GuiService = game:GetService("GuiService")
+local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
+
 -- Начальное обновление
 updateStatus()
 
 Rayfield:Notify({
     Title = "Интерфейс загружен",
-    Content = "GUI успешно создан! Выберите нужные функции.",
-    Duration = 5,
+    Content = "GUI успешно создан! Выберите нужные функции.\n\nДобавлены новые скрипты:\n• Авто-открытие ворот\n• Авто-режойн при ошибке",
+    Duration = 6,
     Image = 4483362458,
 })
